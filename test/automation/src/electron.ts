@@ -24,6 +24,7 @@ export async function resolveElectronConfiguration(options: LaunchOptions): Prom
 
 	const args = [
 		workspacePath,
+		'--log=trace',
 		'--skip-release-notes',
 		'--skip-welcome',
 		'--disable-telemetry',
