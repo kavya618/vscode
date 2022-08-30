@@ -85,6 +85,7 @@ import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
 import { IEditorGroupsService } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { NotebookPerfMarks } from 'vs/workbench/contrib/notebook/common/notebookPerformance';
 import { BaseCellEditorOptions } from 'vs/workbench/contrib/notebook/browser/viewModel/cellEditorOptions';
+import { ILogService } from 'vs/platform/log/common/log';
 
 const $ = DOM.$;
 
@@ -255,6 +256,7 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
 		@INotebookExecutionStateService notebookExecutionStateService: INotebookExecutionStateService,
 		@IEditorProgressService private readonly editorProgressService: IEditorProgressService,
+		@ILogService private readonly logService: ILogService,
 	) {
 		super();
 		this.isEmbedded = creationOptions.isEmbedded ?? false;
@@ -1006,6 +1008,7 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 	}
 
 	async setModel(textModel: NotebookTextModel, viewState: INotebookEditorViewState | undefined, perf?: NotebookPerfMarks): Promise<void> {
+		this.logService.info('setModel');
 		if (this.viewModel === undefined || !this.viewModel.equal(textModel)) {
 			const oldTopInsertToolbarHeight = this._notebookOptions.computeTopInsertToolbarHeight(this.viewModel?.viewType);
 			const oldBottomToolbarDimensions = this._notebookOptions.computeBottomToolbarDimensions(this.viewModel?.viewType);
@@ -1062,6 +1065,8 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 		this.updateContextKeysOnFocusChange();
 		// render markdown top down on idle
 		this._backgroundMarkdownRendering();
+
+		this.logService.info('finish setModel');
 	}
 
 	private _backgroundMarkdownRenderRunning = false;
@@ -1283,6 +1288,7 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 	}
 
 	private async _createWebview(id: string, resource: URI): Promise<void> {
+		this.logService.info('start _createWebview');
 		const that = this;
 
 		this._webview = this.instantiationService.createInstance(BackLayerWebView, {
@@ -1312,9 +1318,11 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 
 		// attach the webview container to the DOM tree first
 		this._list.attachWebview(this._webview.element);
+		this.logService.info('finish _createWebview');
 	}
 
 	private async _attachModel(textModel: NotebookTextModel, viewState: INotebookEditorViewState | undefined, perf?: NotebookPerfMarks) {
+		this.logService.info('start _attachModel');
 		await this._createWebview(this.getId(), textModel.uri);
 		this.viewModel = this.instantiationService.createInstance(NotebookViewModel, textModel.viewType, textModel, this._viewContext, this.getLayoutInfo(), { isReadOnly: this._readOnly });
 		this._viewContext.eventDispatcher.emit([new NotebookLayoutChangedEvent({ width: true, fontInfo: true }, this.getLayoutInfo())]);
@@ -1431,6 +1439,7 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 
 		// restore list state at last, it must be after list layout
 		this.restoreListViewState(viewState);
+		this.logService.info('finish _attachModel');
 	}
 
 	private _bindCellListener(cell: ICellViewModel) {
