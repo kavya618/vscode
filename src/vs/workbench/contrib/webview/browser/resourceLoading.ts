@@ -78,7 +78,7 @@ export async function loadLocalResource(
 		}
 
 		// Otherwise the error is unexpected.
-		logService.debug(`loadLocalResource - Error using fileReader. requestUri=${requestUri}`);
+		logService.debug(`loadLocalResource - Error using fileReader. requestUri=${requestUri}, ${err.toString()} ${err.stack} ${err.code} ${err.name} ${err.message}`);
 		console.log(err);
 
 		return WebviewResourceResponse.Failed;
