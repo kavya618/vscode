@@ -346,12 +346,12 @@ export class MergeEditorModel extends EditorModel {
 		this.modifiedBaseRangeHandlingStateStores.get().get(baseRange)!.set(handled, tx);
 	}
 
-	public setLanguageId(languageId: string): void {
+	public setLanguageId(languageId: string, source?: string): void {
 		const language = this.languageService.createById(languageId);
-		this.modelService.setMode(this.base, language);
-		this.modelService.setMode(this.input1.textModel, language);
-		this.modelService.setMode(this.input2.textModel, language);
-		this.modelService.setMode(this.resultTextModel, language);
+		this.modelService.setMode(this.base, language, source);
+		this.modelService.setMode(this.input1.textModel, language, source);
+		this.modelService.setMode(this.input2.textModel, language, source);
+		this.modelService.setMode(this.resultTextModel, language, source);
 	}
 }
 
