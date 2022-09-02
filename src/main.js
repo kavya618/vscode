@@ -196,9 +196,10 @@ function configureCommandlineSwitchesSync(cliArgs) {
 
 			// Locale
 			else if (argvKey === 'locale') {
-				if (argvValue) {
-					app.commandLine.appendSwitch('lang', argvValue);
-				}
+				// Pass in the locale to Electron so that the Windows Control Overlay
+				// is rendered correctly.
+				// Ref https://github.com/microsoft/vscode/issues/159813
+				app.commandLine.appendSwitch('lang', argvValue ?? 'en');
 			}
 
 			// Others
