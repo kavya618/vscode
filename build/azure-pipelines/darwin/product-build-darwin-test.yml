@@ -54,7 +54,7 @@ steps:
         displayName: Run unit tests (Browser, Chromium & Webkit)
         timeoutInMinutes: 30
 
-  - ${{ if or(eq(parameters.VSCODE_RUN_INTEGRATION_TESTS, true), eq(parameters.VSCODE_RUN_SMOKE_TESTS, true)) }}:
+  - ${{ if eq(parameters.VSCODE_RUN_INTEGRATION_TESTS, true) }}:
     - script: |
         set -e
         yarn gulp \
@@ -74,7 +74,7 @@ steps:
           compile-extension:vscode-api-tests \
           compile-extension:vscode-colorize-tests \
           compile-extension:vscode-test-resolver
-      displayName: Build extensions for tests
+      displayName: Build integration tests
 
     - ${{ if eq(parameters.VSCODE_QUALITY, 'oss') }}:
       - script: |
@@ -126,6 +126,13 @@ steps:
           set -e
           yarn --cwd test/smoke compile
         displayName: Compile smoke tests
+
+      - script: |
+          set -e
+          yarn gulp \
+            compile-extension:markdown-language-features \
+            compile-extension-media
+        displayName: Build extensions for smoke tests
 
       - script: |
           set -e
