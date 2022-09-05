@@ -20,6 +20,9 @@ import { HotExitConfiguration, IFilesConfiguration } from 'vs/platform/files/com
 import { ILogService } from 'vs/platform/log/common/log';
 import { IFolderBackupInfo, isFolderBackupInfo, IWorkspaceBackupInfo } from 'vs/platform/backup/common/backup';
 import { IWorkspaceIdentifier, isWorkspaceIdentifier } from 'vs/platform/workspace/common/workspace';
+import { ILifecycleMainService, LifecycleMainPhase, ShutdownEvent } from 'vs/platform/lifecycle/electron-main/lifecycleMainService';
+import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
+import { Queue, TaskSequentializer } from 'vs/base/common/async';
 
 export class BackupMainService implements IBackupMainService {
 
@@ -38,21 +41,69 @@ export class BackupMainService implements IBackupMainService {
 	private readonly backupUriComparer = extUriBiasedIgnorePathCase;
 	private readonly backupPathComparer = { isEqual: (pathA: string, pathB: string) => isEqual(pathA, pathB, !isLinux) };
 
+	private readonly saveSequentializer = new TaskSequentializer();
+
 	constructor(
 		@IEnvironmentMainService environmentMainService: IEnvironmentMainService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@ILogService private readonly logService: ILogService
+		@ILogService private readonly logService: ILogService,
+		@ILifecycleMainService private readonly lifecycleMainService: ILifecycleMainService
 	) {
 		this.backupHome = environmentMainService.backupHome;
 		this.workspacesJsonPath = environmentMainService.backupWorkspacesPath;
+
+		this.registerListeners();
+	}
+
+	private registerListeners(): void {
+		this.lifecycleMainService.onWillShutdown(e => this.onWillShutdown(e));
+	}
+
+	private onWillShutdown(e: ShutdownEvent): void {
+		e.join(this.saveSequentializer.pending);
+	}
+
+	private lastKnownWorkspacesJsonContents: string | undefined = undefined;
+
+	private async readWorkspacesMetadata(): Promise<string | undefined> {
+		try {
+			this.lastKnownWorkspacesJsonContents = await Promises.readFile(this.workspacesJsonPath, 'utf8');
+		} catch (error) {
+			this.logService.error(`Backup: Could not read workspaces.json: ${error.toString()}`);
+		}
+
+		return this.lastKnownWorkspacesJsonContents;
+	}
+
+	private writeWorkspacesMetadata(): void {
+		if (this.saveSequentializer.hasPending()) {
+			return; // a write is already scheduled to run
+		}
+
+		this.saveSequentializer.setPending(Date.now(), this.doWriteWorkspacesMetadata());
+	}
+
+	private async doWriteWorkspacesMetadata(): Promise<void> {
+		try {
+			const newWorkspacesJsonContentsContents = JSON.stringify(this.serializeBackups());
+			if (this.lastKnownWorkspacesJsonContents !== newWorkspacesJsonContentsContents) {
+				await Promises.writeFile(this.workspacesJsonPath, newWorkspacesJsonContentsContents);
+				this.lastKnownWorkspacesJsonContents = newWorkspacesJsonContentsContents;
+			}
+		} catch (error) {
+			this.logService.error(`Backup: Could not save workspaces.json: ${error.toString()}`);
+		}
 	}
 
 	async initialize(): Promise<void> {
-		let backups: IBackupWorkspacesFormat & IDeprecatedBackupWorkspacesFormat;
+		let backups: IBackupWorkspacesFormat & IDeprecatedBackupWorkspacesFormat = Object.create(null);
 		try {
-			backups = JSON.parse(await Promises.readFile(this.workspacesJsonPath, 'utf8')); // invalid JSON or permission issue can happen here
+			const workspacesMetadata = await this.readWorkspacesMetadata();
+			if (workspacesMetadata) {
+				backups = JSON.parse(workspacesMetadata);
+			}
 		} catch (error) {
-			backups = Object.create(null);
+			// invalid JSON or permission issue can happen here
 		}
 
 		// validate empty workspaces backups first
